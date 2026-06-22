@@ -83,6 +83,18 @@ The change is considered successful when all signals below are true:
 - Tool failures do not crash execution; they produce escalation with error context.
 - Test coverage includes approval, denial, policy-driven denial, and escalation paths.
 
+## Session 1 Traceability Summary
+
+The Session 1 domain exploration confirms that all required decision classes are represented
+in sample request data and tied to explicit decision drivers:
+
+- Approve anchor: REQ-001 (contracted vendor, in-budget spend, no policy violations).
+- Deny anchor: REQ-006 (CC-003 budget overage; 11200 requested vs 6900 remaining).
+- Escalate anchor: REQ-011 (V-006 compliance flag; POL-006 escalation trigger).
+
+These anchors are used in spec and test planning so the implementation remains consistent
+with the intended procurement decision model.
+
 ## Risks and Mitigations
 
 - Risk: Ambiguous precedence when multiple checks disagree.

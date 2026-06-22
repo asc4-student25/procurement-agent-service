@@ -21,6 +21,21 @@
 - [x] `specs/risk-assessment/spec.md`
 - [x] `specs/agent-orchestration/spec.md`
 
+## Session 1 Outcome Traceability
+
+- [x] Identify one sample request expected to approve and document why
+	- REQ-001 expected approve: active contracted vendor V-002, amount 24000 within CC-001 remaining 187550, no policy violation.
+- [x] Identify one sample request expected to deny and document why
+	- REQ-006 expected deny: amount 11200 exceeds CC-003 remaining 6900 (overage 4300), budget overage prohibition behavior.
+- [x] Identify one sample request expected to escalate and document why
+	- REQ-011 expected escalate: vendor V-006 is compliance-flagged, triggering POL-006 escalation.
+- [x] Confirm rationale drivers map to at least one check or policy per outcome
+	- Approve driver: clean budget, policy, duplication, and risk checks (REQ-001).
+	- Deny driver: budget-check overage result and policy budget prohibition behavior (REQ-006).
+	- Escalate driver: policy-compliance and risk checks for compliance-flagged vendor (REQ-011).
+- [x] Confirm budget-check behavior is explicitly represented in Session 1 notes
+	- Budget edge case anchored on CC-003 remaining 6900 with REQ-006 overage calculation.
+
 ## Validation and Evidence Commands
 
 ```bash

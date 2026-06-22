@@ -11,6 +11,20 @@ These guardrails define how implementation must follow approved specs in this ch
 3. Run `openspec validate add-procurement-intelligence-agent` before raising code review.
 4. Keep proposal, design, tasks, and capability specs synchronized after each scope change.
 
+## SDD Workflow Commands
+
+Agent mode commands (Copilot chat):
+
+1. `/opsx-explore` to inspect data shapes, edge cases, and decision rules.
+2. `/opsx-propose <change-name>` to draft proposal and formal spec artifacts.
+3. `/opsx-continue` to advance to the next artifact in the current change.
+
+CLI commands (terminal):
+
+1. `openspec validate add-procurement-intelligence-agent` to validate this change.
+2. `openspec validate --all` to validate all repository changes.
+3. `openspec list` to list change folders and status.
+
 ## Scope Guardrails
 
 1. Do not modify files in mock_data.

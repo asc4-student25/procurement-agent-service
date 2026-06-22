@@ -29,6 +29,29 @@ The loader SHALL resolve fixture paths independent of process working directory.
 - WHEN a loader function is called
 - THEN the correct fixture file is still located and loaded
 
+### Requirement: Reference Data Assumptions
+The specification SHALL define the fixture assumptions used to drive policy and outcome tests.
+
+#### Scenario: Budget fixture contains known budget edge case
+- GIVEN budgets fixture is loaded
+- WHEN records are inspected
+- THEN cost center CC-003 exists with remaining budget 6900 for budget-overage test design
+
+#### Scenario: Vendor fixture contains known compliance and contract edge cases
+- GIVEN vendors fixture is loaded
+- WHEN records are inspected
+- THEN vendor V-006 exists as compliance-flagged and vendor V-010 exists with expired contract status
+
+#### Scenario: Policy fixture contains catering prohibition rule
+- GIVEN policies fixture is loaded
+- WHEN policy ids are inspected
+- THEN POL-004 exists and represents catering prohibition behavior
+
+#### Scenario: Request fixture supports outcome traceability
+- GIVEN requests fixture is loaded
+- WHEN sample requests are reviewed
+- THEN the dataset contains cases supporting approve deny and escalate decision paths
+
 ### Requirement: Tools Use Loader Only
 Tool modules SHALL consume fixture data through loader functions and not direct file reads.
 
