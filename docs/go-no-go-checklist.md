@@ -9,29 +9,29 @@
 
 | Field | Value |
 |-------|-------|
-| Date | |
-| Release / Milestone | Session 5 Final Submission |
-| Release Description | |
-| Decision Maker | |
-| Attendees | |
+| Date | 2026-06-23 |
+| Release / Milestone | Member 1 US-001 Checkpoint |
+| Release Description | Loader and budget module implementation validation checkpoint before full-team integration |
+| Decision Maker | Resource 1 (member1/us001-loader-budget) |
+| Attendees | Resource 1 |
 
 ---
 
 ## Section 1: Requirements Documentation
 
-- [ ] Acceptance criteria in `README.md` have been reviewed and are current
+- [x] Acceptance criteria in `README.md` have been reviewed and are current
 - [ ] All eight acceptance criteria are met (check each below)
 
 | Criterion | Met? | Notes |
 |-----------|------|-------|
-| Agent accepts `PurchaseRequest` and returns `ProcurementRecommendation` | | |
-| Decision is always `approve`, `deny`, or `escalate` | | |
-| Every recommendation includes a non-empty `rationale` | | |
-| All four checks are performed: budget, vendor duplication, policy, risk | | |
-| Tool errors are caught and reflected in output | | |
-| All three decision types are reachable with sample requests | | |
-| pytest suite passes: approve, deny, policy-deny, escalate cases | | |
-| `openspec validate` passes across complete spec suite | | |
+| Agent accepts `PurchaseRequest` and returns `ProcurementRecommendation` | Partial | Not validated in member1 checkpoint |
+| Decision is always `approve`, `deny`, or `escalate` | Partial | Not validated in member1 checkpoint |
+| Every recommendation includes a non-empty `rationale` | Partial | Not validated in member1 checkpoint |
+| All four checks are performed: budget, vendor duplication, policy, risk | Partial | Budget and loader modules completed in this checkpoint |
+| Tool errors are caught and reflected in output | Partial | Verified for budget tool unavailable-data, unknown-center, and invalid-record paths |
+| All three decision types are reachable with sample requests | No | End-to-end run pending full integration |
+| pytest suite passes: approve, deny, policy-deny, escalate cases | No | Member1 budget+loader slice passed; full scenario suite pending |
+| `openspec validate` passes across complete spec suite | No | Pending full-team validation run |
 
 ---
 
@@ -58,20 +58,27 @@
 
 | Metric | Count |
 |--------|-------|
-| Total tests | |
-| Passed | |
-| Failed | |
-| Skipped | |
-| Errors | |
+| Total tests | 11 |
+| Passed | 11 |
+| Failed | 0 |
+| Skipped | 0 |
+| Errors | 0 |
 
-**pytest command run**: `pytest tests/ -v --tb=short --junitxml=docs/test-results.xml`
+**pytest command run**: `pytest tests/test_budget.py tests/test_loader.py -v --tb=short --junitxml=../docs/test-results.xml` (executed from `solutions/`)
 
 **Test results file**: `docs/test-results.xml`, committed alongside this checklist (ITC.003)
 
 **Test output summary** (paste last 10 lines or attach screenshot):
 
 ```
-<paste here>
+tests\test_budget.py::test_invalid_remaining_balance_returns_structured_error PASSED [ 72%]
+tests\test_loader.py::test_loader_functions_return_lists PASSED          [ 81%]
+tests\test_loader.py::test_loader_works_from_non_root_working_directory PASSED [ 90%]
+tests\test_loader.py::test_missing_file_raises_file_not_found PASSED     [100%]
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+- generated xml file: ...\docs\test-results.xml -
+======================== 11 passed, 1 warning in 0.09s ========================
 ```
 
 ---
@@ -83,7 +90,8 @@
 
 | ID | Description | Severity | Acceptance Rationale |
 |----|-------------|----------|---------------------|
-| | | | |
+| D-001 | Full integration and orchestration tests not yet executed in this checkpoint | High | Acceptable for lane-level checkpoint; blocks final Go |
+| D-002 | OpenSpec validation command has not been run for full change on this branch | High | Acceptable for lane-level checkpoint; must be completed before release |
 
 ---
 
@@ -108,7 +116,7 @@
 Mark exactly one:
 
 - [ ] **Go**: all acceptance criteria are met, peer review passed, no blocking defects
-- [ ] **No-Go**: one or more blocking items remain; list them below
+- [x] **No-Go**: one or more blocking items remain; list them below
 - [ ] **Conditional Go**: proceeding with conditions; conditions listed below
 
 **Decision Rationale** *(required, minimum two sentences)*:
@@ -117,10 +125,12 @@ Mark exactly one:
      Reference specific evidence: test results, peer review rating, acceptance criteria
      status. A single sentence is not sufficient. -->
 
+This checkpoint verifies the member1 implementation scope for US-001, including loader and budget behavior updates and structured error handling. Evidence in `docs/test-results.xml` shows 11/11 member1 tests passing (budget plus loader), but end-to-end acceptance criteria and full OpenSpec validation are still pending, so this checkpoint is No-Go for release.
+
 **Conditions** *(if Conditional Go or No-Go, list all)*:
 
-1.
-2.
+1. Run full project validation (`openspec validate add-procurement-intelligence-agent` or `openspec validate --all`).
+2. Run full test suite and update XML evidence with complete results.
 
 ---
 

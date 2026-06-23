@@ -18,15 +18,18 @@ def _load(filename: str) -> list[dict[str, object]]:
     path = _ROOT / filename
     if not path.exists():
         raise FileNotFoundError(f"Mock data file not found: {path}")
-    return json.loads(path.read_text(encoding="utf-8"))
+    data = json.loads(path.read_text(encoding="utf-8"))
+    if not isinstance(data, list):
+        raise ValueError(f"Mock data file must contain a list of records: {path}")
+    return data
 
 
 def load_budgets() -> list[dict[str, object]]:
     """Return all cost center budget records from mock_data/budgets.json.
 
     Returns:
-        A list of dicts with keys: cost_center_id, department, quarterly_budget,
-        spent_to_date, remaining_budget.
+        A list of dicts with keys: cost_center_id, name, quarterly_budget,
+        spent_to_date, remaining.
     """
     return _load("budgets.json")
 
