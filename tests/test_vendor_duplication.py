@@ -22,6 +22,19 @@ def test_violation_office_supplies_above_threshold() -> None:
     assert "POL-001" in result["reason"]
 
 
+def test_req008_conflicts_are_exact_office_supplies_contract_vendors() -> None:
+    """REQ-008: NovaPrint should conflict with contracted vendors V-001 and V-003."""
+    result = check_vendor_duplication("V-012", "office_supplies", 28_500.00)
+
+    assert result["violation"] is True
+    assert set(result["conflicting_vendor_ids"]) == {"V-001", "V-003"}
+    assert set(result["conflicting_vendor_names"]) == {
+        "Apex Office Supplies",
+        "Meridian Office Products",
+    }
+    assert "POL-001" in result["reason"]
+
+
 def test_no_violation_sole_active_vendor_in_category() -> None:
     """If no other vendor holds an active contract in the category, no violation."""
     result = check_vendor_duplication("V-017", "catering", 30_000.00)
