@@ -6,8 +6,8 @@ from tools.policy_compliance import check_policy_compliance
 
 
 def test_catering_always_denied() -> None:
-    """POL-004: any catering purchase is denied regardless of amount or vendor."""
-    result = check_policy_compliance("V-017", "catering", 2_550.00)
+    """POL-004 / REQ-009: catering request at $3,200 is denied."""
+    result = check_policy_compliance("V-017", "catering", 3_200.00)
     assert result["violation_count"] >= 1
     policy_ids = [violation["policy_id"] for violation in result["violations"]]
     assert "POL-004" in policy_ids
@@ -28,7 +28,7 @@ def test_compliance_flagged_vendor_escalates() -> None:
 
 
 def test_expired_contract_vendor_denied() -> None:
-    """POL-005: V-010 has an expired contract and must deny."""
+    """POL-005 / REQ-007: Crestview Print (V-010) expired contract must deny."""
     result = check_policy_compliance("V-010", "marketing_materials", 5_400.00)
     policy_ids = [violation["policy_id"] for violation in result["violations"]]
     assert "POL-005" in policy_ids
@@ -69,6 +69,32 @@ def test_pol002_signal_when_manager_approval_missing() -> None:
         "V-002",
         "software_licenses",
         24_000.00,
+        manager_approval_present=False,
+    )
+    policy_ids = [violation["policy_id"] for violation in result["violations"]]
+    assert "POL-002" in policy_ids
+    assert result["highest_severity"] == "escalate"
+
+
+def test_pol002_lower_boundary_requires_manager_approval() -> None:
+    """POL-002 lower boundary: $10,000 with missing manager approval should escalate."""
+    result = check_policy_compliance(
+        "V-002",
+        "software_licenses",
+        10_000.00,
+        manager_approval_present=False,
+    )
+    policy_ids = [violation["policy_id"] for violation in result["violations"]]
+    assert "POL-002" in policy_ids
+    assert result["highest_severity"] == "escalate"
+
+
+def test_pol002_upper_boundary_requires_manager_approval() -> None:
+    """POL-002 upper boundary: $49,999 with missing manager approval should escalate."""
+    result = check_policy_compliance(
+        "V-002",
+        "software_licenses",
+        49_999.00,
         manager_approval_present=False,
     )
     policy_ids = [violation["policy_id"] for violation in result["violations"]]
