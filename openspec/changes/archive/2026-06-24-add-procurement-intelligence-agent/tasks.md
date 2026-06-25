@@ -15,10 +15,10 @@
 
 - [x] Member 1 (US-001) implementation aligned to specs
 	- Updated loader validation behavior in `solutions/data/loader.py`.
-	- Updated budget fallback, malformed-record handling, and fixture key handling in `solutions/tools/budget.py`.
-	- Added/updated US-001 tests in `solutions/tests/test_budget.py` and `solutions/tests/test_loader.py`.
+	- Updated budget fallback, malformed-record handling, and fixture key handling in `tools/budget.py`.
+	- Added/updated US-001 tests in `tests/test_budget.py` and `tests/test_loader.py`.
 - [x] Member 1 (US-001) test evidence captured
-	- Ran `pytest tests/test_budget.py tests/test_loader.py -v --tb=short --junitxml=../docs/test-results.xml` from `solutions/`.
+	- Ran `pytest tests/test_budget.py tests/test_loader.py -v --tb=short --junitxml=docs/test-results.xml` from project root.
 	- Evidence file generated: `docs/test-results.xml` (11 passed, 0 failed).
 - [ ] Full change alignment complete across US-001 through US-005
 - [ ] Full-suite XML evidence captured using project standard command

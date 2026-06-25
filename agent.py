@@ -9,23 +9,10 @@ from dotenv import load_dotenv
 from pydantic_ai import Agent
 
 from models import ProcurementRecommendation, PurchaseRequest
-
-try:
-    from tools.budget import check_budget
-except ImportError:  # pragma: no cover - temporary fallback while repo is being aligned
-    from solutions.tools.budget import check_budget
-
-try:
-    from tools.vendor_duplication import check_vendor_duplication
-except ImportError:  # pragma: no cover - temporary fallback while repo is being aligned
-    from solutions.tools.vendor_duplication import check_vendor_duplication
-
-try:
-    from tools.policy_compliance import check_policy_compliance
-except ImportError:  # pragma: no cover - temporary fallback while repo is being aligned
-    from solutions.tools.policy_compliance import check_policy_compliance
-
+from tools.budget import check_budget
+from tools.policy_compliance import check_policy_compliance
 from tools.risk_assessment import assess_risk
+from tools.vendor_duplication import check_vendor_duplication
 
 load_dotenv()
 

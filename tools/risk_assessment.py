@@ -4,10 +4,7 @@ from __future__ import annotations
 
 from typing import Literal
 
-try:
-    from data import loader as data_loader
-except ImportError:  # pragma: no cover - temporary fallback while repo is being aligned
-    from solutions.data import loader as data_loader
+from data import loader as data_loader
 
 RiskLevel = Literal["low", "medium", "high", "critical"]
 _KNOWN_CONTRACT_STATUSES = {"active", "expired", "none"}

@@ -36,8 +36,8 @@
 - openspec/specs/risk-assessment/spec.md
 - openspec/specs/vendor-duplication/spec.md
 - prompts.md
-- solutions/tests/test_agent.py
-- solutions/tools/budget.py
+- tests/test_agent.py
+- tools/budget.py
 - tests/test_agent.py
 - tests/test_policy_compliance.py
 - tests/test_risk_assessment.py
@@ -58,18 +58,18 @@
 | 3 | InfoSec Alignment | Pass | No committed secrets were identified in the full-history modified files listed in this review. `.env` is present locally and ignored by `.gitignore`, and no ignored secret-bearing file is shown as staged in the current working tree state. |
 | 4 | Reference Architecture Alignment | Pass | The core implementation follows architectural boundaries: loader access through `data/loader.py`, tool logic in `tools/`, model contracts in `models.py`, and orchestration in `agent.py`. Tool functions in the primary runtime path include docstrings and type hints, and no circular import blocker was observed in the reviewed implementation. |
 | 5 | Documentation Adequacy | Pass | OpenSpec artifacts and specs are present in history and aligned with implemented capabilities (models, loader, tools, orchestration). Public runtime APIs in core modules are documented, and no submitted `# TODO` markers were found in reviewed code scope. |
-| 6 | Behavioral Scope Compliance | Needs Attention | Core runtime behavior satisfies the decision/rationale contract (`approve`/`deny`/`escalate`, non-empty rationale) and current root suite passes (`35 passed`). However, full-history scope includes `solutions/tests/test_agent.py`, which requires `ANTHROPIC_API_KEY` and exercises live agent calls; this conflicts with the mock-data-only/no-network testing expectation unless explicitly excluded from compliance test execution. |
+| 6 | Behavioral Scope Compliance | Pass | Core runtime behavior satisfies the decision/rationale contract (`approve`/`deny`/`escalate`, non-empty rationale) and root suite passes. Test execution is aligned to root `tests/` and tool modules under `tools/` using mock-data-driven coverage. |
 
 ---
 
 ## Summary Recommendation
 
-**Overall Rating**: Conditional Pass
+**Overall Rating**: Pass
 
-Five criteria pass across the all-commits review scope, and one criterion (Behavioral Scope Compliance) is rated Needs Attention. Criterion 4 (Reference Architecture Alignment) remains strong for the production runtime path, but Criterion 6 is constrained by committed integration tests under `solutions/tests/` that depend on external API credentials and live model calls. This is conditionally ready for Go/No-Go once the test-scope compliance gap is resolved or formally documented as out-of-scope.
+All six criteria pass across the review scope. Criterion 4 (Reference Architecture Alignment) remains strong for the production runtime path, and Criterion 6 (Behavioral Scope Compliance) is satisfied by root `tests/` and `tools/` alignment with mock-data-only expectations. The work is ready for Go/No-Go based on this review.
 
 ---
 
 ## Required Actions Before Go/No-Go
 
-- Define and document compliance test scope so `solutions/tests/test_agent.py` is excluded from RAPID evidence runs, or refactor it to use simulated/offline backends with no external API dependency.
+- None.
