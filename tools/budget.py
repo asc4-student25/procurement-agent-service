@@ -2,7 +2,26 @@
 
 from __future__ import annotations
 
-from data.loader import load_budgets
+from data import loader as data_loader
+
+
+def _error_payload(
+    *,
+    cost_center_id: str,
+    requested_amount: float,
+    message: str,
+    error_type: str,
+) -> dict[str, object]:
+    """Return a typed error payload for budget tool failures."""
+    return {
+        "error": message,
+        "error_type": error_type,
+        "within_budget": False,
+        "cost_center_id": cost_center_id,
+        "requested_amount": requested_amount,
+        "remaining_budget": 0.0,
+        "overage": requested_amount,
+    }
 
 
 def check_budget(cost_center_id: str, requested_amount: float) -> dict[str, object]:
@@ -25,40 +44,46 @@ def check_budget(cost_center_id: str, requested_amount: float) -> dict[str, obje
         - ``error`` (str, optional): Present only if the cost center was not found.
     """
     try:
-        budgets = load_budgets()
+        budgets = data_loader.load_budgets()
     except FileNotFoundError as exc:
-        return {
-            "error": f"Budget data could not be loaded: {exc}",
-            "within_budget": False,
-            "cost_center_id": cost_center_id,
-            "requested_amount": requested_amount,
-            "remaining_budget": 0.0,
-            "overage": requested_amount,
-        }
+        return _error_payload(
+            cost_center_id=cost_center_id,
+            requested_amount=requested_amount,
+            message=f"Budget data file could not be found: {exc}",
+            error_type="FileNotFoundError",
+        )
+    except KeyError as exc:
+        return _error_payload(
+            cost_center_id=cost_center_id,
+            requested_amount=requested_amount,
+            message=f"Budget data is missing required key: {exc}",
+            error_type="KeyError",
+        )
+    except Exception as exc:
+        return _error_payload(
+            cost_center_id=cost_center_id,
+            requested_amount=requested_amount,
+            message=f"Unexpected budget tool failure: {exc}",
+            error_type="Exception",
+        )
 
     center = next((budget for budget in budgets if budget["cost_center_id"] == cost_center_id), None)
     if center is None:
-        return {
-            "error": f"Cost center '{cost_center_id}' not found in budget data.",
-            "within_budget": False,
-            "cost_center_id": cost_center_id,
-            "requested_amount": requested_amount,
-            "remaining_budget": 0.0,
-            "overage": requested_amount,
-        }
+        return _error_payload(
+            cost_center_id=cost_center_id,
+            requested_amount=requested_amount,
+            message=f"Cost center '{cost_center_id}' not found in budget data.",
+            error_type="KeyError",
+        )
 
     remaining_raw = center.get("remaining", center.get("remaining_budget"))
     if remaining_raw is None:
-        return {
-            "error": (
-                f"Budget record for '{cost_center_id}' is missing remaining balance field."
-            ),
-            "within_budget": False,
-            "cost_center_id": cost_center_id,
-            "requested_amount": requested_amount,
-            "remaining_budget": 0.0,
-            "overage": requested_amount,
-        }
+        return _error_payload(
+            cost_center_id=cost_center_id,
+            requested_amount=requested_amount,
+            message=f"Budget record for '{cost_center_id}' is missing remaining balance field.",
+            error_type="KeyError",
+        )
 
     remaining = float(remaining_raw)
     overage = max(0.0, requested_amount - remaining)

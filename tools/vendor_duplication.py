@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from data.loader import load_policies, load_vendors
+from data import loader as data_loader
 
 # POL-001 threshold: single-source restriction applies above this amount
 _POL001_THRESHOLD = 25_000.00
@@ -17,12 +17,34 @@ _POL001_AFFECTED_CATEGORIES = {
 }
 
 
+def _error_payload(
+    *,
+    vendor_id: str,
+    category: str,
+    amount: float,
+    message: str,
+    error_type: str,
+) -> dict[str, object]:
+    """Return a typed error payload for duplication tool failures."""
+    return {
+        "error": message,
+        "error_type": error_type,
+        "violation": False,
+        "vendor_id": vendor_id,
+        "category": category,
+        "amount": amount,
+        "conflicting_vendor_ids": [],
+        "conflicting_vendor_names": [],
+        "reason": "Vendor data unavailable - could not perform duplication check.",
+    }
+
+
 def _pol001_config() -> tuple[float, set[str]]:
     """Load POL-001 threshold and affected categories with safe defaults."""
     threshold = _POL001_THRESHOLD
     categories = set(_POL001_AFFECTED_CATEGORIES)
 
-    policies = load_policies()
+    policies = data_loader.load_policies()
     policy = next((p for p in policies if p.get("policy_id") == "POL-001"), None)
     if not isinstance(policy, dict):
         return threshold, categories
@@ -71,19 +93,32 @@ def check_vendor_duplication(
         - ``error`` (str, optional): Present only if vendor data could not be loaded.
     """
     try:
-        vendors = load_vendors()
+        vendors = data_loader.load_vendors()
         threshold, covered_categories = _pol001_config()
-    except (FileNotFoundError, ValueError) as exc:
-        return {
-            "error": f"Vendor data could not be loaded: {exc}",
-            "violation": False,
-            "vendor_id": vendor_id,
-            "category": category,
-            "amount": amount,
-            "conflicting_vendor_ids": [],
-            "conflicting_vendor_names": [],
-            "reason": "Vendor data unavailable — could not perform duplication check.",
-        }
+    except FileNotFoundError as exc:
+        return _error_payload(
+            vendor_id=vendor_id,
+            category=category,
+            amount=amount,
+            message=f"Vendor or policy data file could not be found: {exc}",
+            error_type="FileNotFoundError",
+        )
+    except KeyError as exc:
+        return _error_payload(
+            vendor_id=vendor_id,
+            category=category,
+            amount=amount,
+            message=f"Vendor or policy data is missing required key: {exc}",
+            error_type="KeyError",
+        )
+    except Exception as exc:
+        return _error_payload(
+            vendor_id=vendor_id,
+            category=category,
+            amount=amount,
+            message=f"Unexpected duplication tool failure: {exc}",
+            error_type="Exception",
+        )
 
     if category not in covered_categories:
         return {
@@ -110,6 +145,29 @@ def check_vendor_duplication(
             "reason": (
                 f"Amount ${amount:,.2f} is at or below the ${threshold:,.2f} "
                 "single-source restriction threshold. POL-001 does not apply."
+            ),
+        }
+
+    requested_vendor = next(
+        (vendor for vendor in vendors if vendor.get("vendor_id") == vendor_id),
+        None,
+    )
+    requested_vendor_is_active_for_category = (
+        requested_vendor is not None
+        and requested_vendor.get("category") == category
+        and requested_vendor.get("contract_status") == "active"
+    )
+    if requested_vendor_is_active_for_category:
+        return {
+            "violation": False,
+            "vendor_id": vendor_id,
+            "category": category,
+            "amount": amount,
+            "conflicting_vendor_ids": [],
+            "conflicting_vendor_names": [],
+            "reason": (
+                f"Requested vendor {vendor_id} is an active contracted vendor for "
+                f"'{category}'. No single-source violation."
             ),
         }
 

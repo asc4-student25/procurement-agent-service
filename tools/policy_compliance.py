@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from data.loader import load_budgets, load_policies, load_vendors
+from data import loader as data_loader
 
 # Amount within this fraction of the director threshold triggers near-threshold escalation.
 _DIRECTOR_THRESHOLD = 50_000.00
@@ -19,6 +19,17 @@ _POL001_DEFAULT_AFFECTED_CATEGORIES = {
     "fleet_parts",
     "staffing",
 }
+
+
+def _error_payload(message: str, error_type: str) -> dict[str, object]:
+    """Return a typed error payload for policy compliance failures."""
+    return {
+        "error": message,
+        "error_type": error_type,
+        "violations": [],
+        "violation_count": 0,
+        "highest_severity": "escalate",
+    }
 
 
 def _find_policy(
@@ -97,16 +108,24 @@ def check_policy_compliance(
         A dict containing ``violations``, ``violation_count``, and ``highest_severity``.
     """
     try:
-        vendors = load_vendors()
-        policies = load_policies()
-        budgets = load_budgets() if cost_center_id else []
-    except (FileNotFoundError, ValueError) as exc:
-        return {
-            "error": f"Policy or vendor data could not be loaded: {exc}",
-            "violations": [],
-            "violation_count": 0,
-            "highest_severity": "escalate",
-        }
+        vendors = data_loader.load_vendors()
+        policies = data_loader.load_policies()
+        budgets = data_loader.load_budgets() if cost_center_id else []
+    except FileNotFoundError as exc:
+        return _error_payload(
+            f"Policy, vendor, or budget data file could not be found: {exc}",
+            "FileNotFoundError",
+        )
+    except KeyError as exc:
+        return _error_payload(
+            f"Policy, vendor, or budget data is missing required key: {exc}",
+            "KeyError",
+        )
+    except Exception as exc:
+        return _error_payload(
+            f"Unexpected policy compliance tool failure: {exc}",
+            "Exception",
+        )
 
     vendor = next((record for record in vendors if record.get("vendor_id") == vendor_id), None)
     violations: list[dict[str, str]] = []
@@ -117,27 +136,34 @@ def check_policy_compliance(
 
     # POL-001: Single-source restriction above threshold for covered categories.
     if category in pol001_categories and amount > pol001_threshold:
-        conflicts = [
-            candidate
-            for candidate in vendors
-            if candidate.get("vendor_id") != vendor_id
-            and candidate.get("category") == category
-            and candidate.get("contract_status") == "active"
-        ]
-        if conflicts:
-            conflict_details = ", ".join(
-                f"{candidate.get('name', 'Unknown')} ({candidate.get('vendor_id', 'N/A')})"
-                for candidate in conflicts
-            )
-            violations.append({
-                "policy_id": "POL-001",
-                "rule_description": (
-                    f"Amount ${amount:,.2f} exceeds the POL-001 threshold of "
-                    f"${pol001_threshold:,.2f} for '{category}', and active contracted "
-                    f"vendor(s) already exist: {conflict_details}."
-                ),
-                "forced_decision": "deny",
-            })
+        requested_vendor_is_active_for_category = (
+            vendor is not None
+            and vendor.get("category") == category
+            and vendor.get("contract_status") == "active"
+        )
+        if not requested_vendor_is_active_for_category:
+            conflicts = [
+                candidate
+                for candidate in vendors
+                if candidate.get("vendor_id") != vendor_id
+                and candidate.get("category") == category
+                and candidate.get("contract_status") == "active"
+            ]
+            if conflicts:
+                conflict_details = ", ".join(
+                    f"{candidate.get('name', 'Unknown')} ({candidate.get('vendor_id', 'N/A')})"
+                    for candidate in conflicts
+                )
+                violations.append({
+                    "policy_id": "POL-001",
+                    "rule_description": (
+                        f"Amount ${amount:,.2f} exceeds the POL-001 threshold of "
+                        f"${pol001_threshold:,.2f} for '{category}', and the requested "
+                        "vendor is not an active contracted option. Active contracted "
+                        f"vendor(s): {conflict_details}."
+                    ),
+                    "forced_decision": "deny",
+                })
 
     # POL-002: Manager approval required when explicit evidence says it is missing.
     if (

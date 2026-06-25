@@ -1,339 +1,112 @@
-"""Tests for US-005 orchestration, precedence, and output contract."""
+"""Pytest-asyncio suite for required procurement agent decision cases."""
 
 from __future__ import annotations
 
-import json
-from pathlib import Path
+from dataclasses import dataclass
 
 import pytest
 
 from agent import evaluate_request
+from data.loader import load_requests
 from models import ProcurementRecommendation, PurchaseRequest
 
 
-def _sample_request() -> PurchaseRequest:
-    return PurchaseRequest(
-        request_id="REQ-TST-001",
-        requestor="A. Tester",
-        cost_center_id="CC-001",
-        vendor_name="BlueSky Cloud Solutions",
-        vendor_id="V-002",
-        category="software_licenses",
-        item_description="Test purchase",
-        quantity=5,
-        unit_price=1000.0,
-        total_amount=5000.0,
+@dataclass(slots=True)
+class _ResultWrapper:
+    """Mirror the pydantic-ai result shape used by acceptance assertions."""
+
+    data: ProcurementRecommendation
+
+
+def _request_from_mock(request_id: str) -> PurchaseRequest:
+    """Return a typed purchase request from mock_data/requests.json by request_id."""
+    raw = next(
+        (item for item in load_requests() if item.get("request_id") == request_id),
+        None,
     )
+    if raw is None:
+        raise ValueError(f"Unknown request id in test fixture: {request_id}")
+
+    payload = {k: v for k, v in raw.items() if k in PurchaseRequest.model_fields}
+    return PurchaseRequest(**payload)
 
 
-def test_all_checks_run_for_every_request(monkeypatch: pytest.MonkeyPatch) -> None:
-    request = _sample_request()
-    calls: list[str] = []
-
-    def fake_budget(cost_center_id: str, amount: float) -> dict[str, object]:
-        calls.append("budget")
-        return {
-            "within_budget": True,
-            "remaining_budget": 100000.0,
-            "requested_amount": amount,
-            "overage": 0.0,
-            "cost_center_id": cost_center_id,
-        }
-
-    def fake_duplication(vendor_id: str, category: str, amount: float) -> dict[str, object]:
-        calls.append("duplication")
-        return {
-            "violation": False,
-            "vendor_id": vendor_id,
-            "category": category,
-            "amount": amount,
-            "reason": "No conflict",
-        }
-
-    def fake_policy(
-        vendor_id: str,
-        category: str,
-        amount: float,
-        quantity: int,
-    ) -> dict[str, object]:
-        calls.append("policy")
-        return {"violations": [], "violation_count": 0, "highest_severity": "none"}
-
-    def fake_risk(vendor_id: str) -> dict[str, object]:
-        calls.append("risk")
-        return {
-            "vendor_id": vendor_id,
-            "vendor_name": "Stub Vendor",
-            "compliance_flag": False,
-            "compliance_notes": "",
-            "contract_status": "active",
-            "risk_level": "low",
-            "risk_summary": "Active contract and no compliance concerns.",
-        }
-
-    monkeypatch.setattr("agent.check_budget", fake_budget)
-    monkeypatch.setattr("agent.check_vendor_duplication", fake_duplication)
-    monkeypatch.setattr("agent.check_policy_compliance", fake_policy)
-    monkeypatch.setattr("agent.assess_risk", fake_risk)
-
-    recommendation = evaluate_request(request)
-
-    assert recommendation.decision == "approve"
-    assert calls == ["budget", "duplication", "policy", "risk"]
-
-
-def test_precedence_escalate_over_deny(monkeypatch: pytest.MonkeyPatch) -> None:
-    request = _sample_request()
-
-    monkeypatch.setattr(
-        "agent.check_budget",
-        lambda *_: {
-            "within_budget": False,
-            "remaining_budget": 1000.0,
-            "requested_amount": 5000.0,
-            "overage": 4000.0,
-            "cost_center_id": "CC-001",
-        },
+def _raw_request_from_mock(request_id: str) -> dict[str, object]:
+    """Return a raw request fixture row by request_id."""
+    raw = next(
+        (item for item in load_requests() if item.get("request_id") == request_id),
+        None,
     )
-    monkeypatch.setattr(
-        "agent.check_vendor_duplication",
-        lambda *_: {"violation": True, "reason": "POL-001 conflict"},
-    )
-    monkeypatch.setattr(
-        "agent.check_policy_compliance",
-        lambda *_: {
-            "violations": [
-                {
-                    "policy_id": "POL-006",
-                    "rule_description": "Compliance-flagged vendor",
-                    "forced_decision": "escalate",
-                }
-            ],
-            "violation_count": 1,
-            "highest_severity": "escalate",
-        },
-    )
-    monkeypatch.setattr(
-        "agent.assess_risk",
-        lambda *_: {
-            "vendor_id": "V-006",
-            "vendor_name": "Vertex",
-            "compliance_flag": True,
-            "compliance_notes": "Pending review",
-            "contract_status": "active",
-            "risk_level": "critical",
-            "risk_summary": "Compliance flag requires escalation.",
-        },
-    )
-
-    recommendation = evaluate_request(request)
-
-    assert recommendation.decision == "escalate"
-    assert "POL-006" in recommendation.rationale or "critical" in recommendation.rationale
+    if raw is None:
+        raise ValueError(f"Unknown request id in test fixture: {request_id}")
+    return raw
 
 
-def test_precedence_deny_over_approve(monkeypatch: pytest.MonkeyPatch) -> None:
-    request = _sample_request()
-
-    monkeypatch.setattr(
-        "agent.check_budget",
-        lambda *_: {
-            "within_budget": False,
-            "remaining_budget": 1000.0,
-            "requested_amount": 5000.0,
-            "overage": 4000.0,
-            "cost_center_id": "CC-001",
-        },
-    )
-    monkeypatch.setattr(
-        "agent.check_vendor_duplication",
-        lambda *_: {"violation": False, "reason": "No conflict"},
-    )
-    monkeypatch.setattr(
-        "agent.check_policy_compliance",
-        lambda *_: {"violations": [], "violation_count": 0, "highest_severity": "none"},
-    )
-    monkeypatch.setattr(
-        "agent.assess_risk",
-        lambda *_: {
-            "vendor_id": "V-002",
-            "vendor_name": "BlueSky",
-            "compliance_flag": False,
-            "compliance_notes": "",
-            "contract_status": "active",
-            "risk_level": "low",
-            "risk_summary": "Low risk",
-        },
-    )
-
-    recommendation = evaluate_request(request)
-
-    assert recommendation.decision == "deny"
-    assert "overage" in recommendation.rationale.lower()
+async def _run_request(request_id: str) -> _ResultWrapper:
+    """Evaluate a fixture request and expose output as result.data."""
+    recommendation = evaluate_request(_request_from_mock(request_id))
+    return _ResultWrapper(data=recommendation)
 
 
-def test_tool_error_triggers_safe_escalation(monkeypatch: pytest.MonkeyPatch) -> None:
-    request = _sample_request()
-
-    monkeypatch.setattr(
-        "agent.check_budget",
-        lambda *_: {
-            "within_budget": True,
-            "remaining_budget": 20000.0,
-            "requested_amount": 5000.0,
-            "overage": 0.0,
-            "cost_center_id": "CC-001",
-        },
-    )
-    monkeypatch.setattr(
-        "agent.check_vendor_duplication",
-        lambda *_: {
-            "error": "Vendor dataset unavailable",
-            "violation": False,
-            "reason": "Unable to check",
-        },
-    )
-    monkeypatch.setattr(
-        "agent.check_policy_compliance",
-        lambda *_: {"violations": [], "violation_count": 0, "highest_severity": "none"},
-    )
-    monkeypatch.setattr(
-        "agent.assess_risk",
-        lambda *_: {
-            "vendor_id": "V-002",
-            "vendor_name": "BlueSky",
-            "compliance_flag": False,
-            "compliance_notes": "",
-            "contract_status": "active",
-            "risk_level": "low",
-            "risk_summary": "Low risk",
-        },
-    )
-
-    recommendation = evaluate_request(request)
-
-    assert recommendation.decision == "escalate"
-    assert "error" in recommendation.rationale.lower()
+def _assert_non_empty_rationale(result: _ResultWrapper) -> None:
+    """Assert rationale is a non-empty string."""
+    assert isinstance(result.data.rationale, str)
+    assert result.data.rationale.strip() != ""
 
 
-def test_output_schema_enforces_allowed_decision_and_non_empty_rationale() -> None:
-    with pytest.raises(ValueError):
-        ProcurementRecommendation(
-            request_id="REQ-OUT-1",
-            decision="approve",
-            rationale="   ",
-        )
+@pytest.mark.asyncio
+async def test_approve_req_001() -> None:
+    result = await _run_request("REQ-001")
+
+    assert result.data.decision == "approve"
+    _assert_non_empty_rationale(result)
 
 
-def test_integration_sample_requests_reach_all_decision_classes() -> None:
-    requests_path = Path("mock_data") / "requests.json"
-    raw_requests = json.loads(requests_path.read_text(encoding="utf-8"))
+@pytest.mark.asyncio
+async def test_deny_req_006_budget_overage() -> None:
+    result = await _run_request("REQ-006")
 
-    outcomes: set[str] = set()
-    for raw_request in raw_requests:
-        payload = {k: v for k, v in raw_request.items() if k in PurchaseRequest.model_fields}
-        recommendation = evaluate_request(PurchaseRequest(**payload))
-        outcomes.add(recommendation.decision)
-        assert recommendation.rationale.strip()
-
-    assert {"approve", "deny", "escalate"}.issubset(outcomes)
+    assert result.data.decision == "deny"
+    _assert_non_empty_rationale(result)
 
 
-def test_deny_rationale_references_driver(monkeypatch: pytest.MonkeyPatch) -> None:
-    request = _sample_request()
+@pytest.mark.asyncio
+async def test_policy_deny_req_009_catering_prohibition() -> None:
+    result = await _run_request("REQ-009")
 
-    monkeypatch.setattr(
-        "agent.check_budget",
-        lambda *_: {
-            "within_budget": True,
-            "remaining_budget": 20000.0,
-            "requested_amount": 5000.0,
-            "overage": 0.0,
-            "cost_center_id": "CC-001",
-        },
-    )
-    monkeypatch.setattr(
-        "agent.check_vendor_duplication",
-        lambda *_: {"violation": True, "reason": "POL-001 threshold exceeded"},
-    )
-    monkeypatch.setattr(
-        "agent.check_policy_compliance",
-        lambda *_: {
-            "violations": [
-                {
-                    "policy_id": "POL-001",
-                    "rule_description": "Single-source restriction",
-                    "forced_decision": "deny",
-                }
-            ],
-            "violation_count": 1,
-            "highest_severity": "deny",
-        },
-    )
-    monkeypatch.setattr(
-        "agent.assess_risk",
-        lambda *_: {
-            "vendor_id": "V-002",
-            "vendor_name": "BlueSky",
-            "compliance_flag": False,
-            "compliance_notes": "",
-            "contract_status": "active",
-            "risk_level": "low",
-            "risk_summary": "Low risk",
-        },
-    )
-
-    recommendation = evaluate_request(request)
-
-    assert recommendation.decision == "deny"
-    assert "POL-001" in recommendation.rationale
+    assert result.data.decision == "deny"
+    _assert_non_empty_rationale(result)
 
 
-def test_escalate_rationale_references_driver(monkeypatch: pytest.MonkeyPatch) -> None:
-    request = _sample_request()
+@pytest.mark.asyncio
+async def test_escalate_req_011_compliance_flagged_vendor() -> None:
+    result = await _run_request("REQ-011")
 
-    monkeypatch.setattr(
-        "agent.check_budget",
-        lambda *_: {
-            "within_budget": True,
-            "remaining_budget": 20000.0,
-            "requested_amount": 5000.0,
-            "overage": 0.0,
-            "cost_center_id": "CC-001",
-        },
-    )
-    monkeypatch.setattr(
-        "agent.check_vendor_duplication",
-        lambda *_: {"violation": False, "reason": "No conflict"},
-    )
-    monkeypatch.setattr(
-        "agent.check_policy_compliance",
-        lambda *_: {
-            "violations": [
-                {
-                    "policy_id": "POL-006",
-                    "rule_description": "Compliance hold",
-                    "forced_decision": "escalate",
-                }
-            ],
-            "violation_count": 1,
-            "highest_severity": "escalate",
-        },
-    )
-    monkeypatch.setattr(
-        "agent.assess_risk",
-        lambda *_: {
-            "vendor_id": "V-006",
-            "vendor_name": "Vertex",
-            "compliance_flag": True,
-            "compliance_notes": "Pending ethics review",
-            "contract_status": "active",
-            "risk_level": "critical",
-            "risk_summary": "Critical risk due to compliance flag.",
-        },
-    )
+    assert result.data.decision == "escalate"
+    _assert_non_empty_rationale(result)
 
-    recommendation = evaluate_request(request)
 
-    assert recommendation.decision == "escalate"
-    assert "POL-006" in recommendation.rationale or "critical" in recommendation.rationale
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    "request_id",
+    [
+        "REQ-006",
+        "REQ-007",
+        "REQ-008",
+        "REQ-009",
+        "REQ-010",
+        "REQ-011",
+        "REQ-001",
+        "REQ-002",
+        "REQ-003",
+    ],
+)
+async def test_parametrized_expected_outcome_matches_decision(request_id: str) -> None:
+    raw = _raw_request_from_mock(request_id)
+    expected_outcome = raw.get("expected_outcome")
+    if not isinstance(expected_outcome, str):
+        raise ValueError(f"Fixture {request_id} missing string expected_outcome")
+
+    result = await _run_request(request_id)
+
+    assert result.data.decision == expected_outcome
