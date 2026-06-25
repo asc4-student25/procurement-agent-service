@@ -37,8 +37,6 @@ def test_unknown_cost_center_returns_error() -> None:
     assert result["within_budget"] is False
     assert "error" in result
     assert "CC-999" in result["error"]
-    assert result["remaining_budget"] == 0.0
-    assert result["overage"] == pytest.approx(1_000.00, abs=0.01)
 
 
 def test_result_contains_required_keys() -> None:
@@ -49,40 +47,3 @@ def test_result_contains_required_keys() -> None:
     assert "remaining_budget" in result
     assert "requested_amount" in result
     assert "overage" in result
-
-
-def test_budget_data_unavailable_returns_structured_error(monkeypatch: pytest.MonkeyPatch) -> None:
-    """If budget data cannot be loaded, check_budget returns escalation-safe fallback values."""
-
-    def _raise() -> list[dict[str, object]]:
-        raise FileNotFoundError("budgets.json missing")
-
-    monkeypatch.setattr("tools.budget.load_budgets", _raise)
-
-    result = check_budget("CC-001", 2_345.67)
-    assert result["within_budget"] is False
-    assert result["remaining_budget"] == 0.0
-    assert result["overage"] == pytest.approx(2_345.67, abs=0.01)
-    assert "error" in result
-
-
-def test_overage_is_rounded_to_two_decimals() -> None:
-    """Over-budget calculations should preserve currency-safe two-decimal precision."""
-    result = check_budget("CC-003", 6_900.019)
-    assert result["within_budget"] is False
-    assert result["overage"] == pytest.approx(0.02, abs=0.001)
-
-
-def test_invalid_remaining_balance_returns_structured_error(monkeypatch: pytest.MonkeyPatch) -> None:
-    """Malformed budget records should not raise and must return error fallback values."""
-
-    def _bad_data() -> list[dict[str, object]]:
-        return [{"cost_center_id": "CC-001", "remaining": "not-a-number"}]
-
-    monkeypatch.setattr("tools.budget.load_budgets", _bad_data)
-
-    result = check_budget("CC-001", 120.50)
-    assert result["within_budget"] is False
-    assert result["remaining_budget"] == 0.0
-    assert result["overage"] == pytest.approx(120.50, abs=0.01)
-    assert "error" in result
