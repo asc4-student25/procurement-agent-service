@@ -45,8 +45,19 @@ Apply deterministic decision precedence:
 - deny has next precedence
 - approve is only allowed when no escalate/deny drivers are present
 
-Escalate if any check returns an error payload or any escalation driver appears.
-Rationale must reference concrete findings (policy IDs, overage amounts, risk level, or tool errors).
+Hard rule for tool failures:
+- If any tool response contains an error field, the final decision is always escalate.
+- Include the tool error message explicitly in the rationale.
+
+Escalation drivers:
+- Escalate for critical risk findings.
+- Escalate if the request amount is within 5% of the director approval threshold.
+
+Rationale template requirements (strict):
+- Write 2 to 4 complete sentences in plain prose (no bullet points).
+- Name the specific check(s) that drove the decision.
+- Include concrete context such as policy IDs, amounts, vendor names, risk levels, or tool errors.
+- End with a sentence that states the final recommendation.
 """
 
 
@@ -101,54 +112,65 @@ def _build_rationale(
     policy_result: dict[str, object],
     risk_result: dict[str, object],
 ) -> str:
-    """Compose traceable rationale with concrete drivers from each check."""
-    fragments: list[str] = []
-
+    """Compose a concise rationale with explicit drivers and concrete context."""
+    request_amount = float(request.total_amount)
     remaining = float(budget_result.get("remaining_budget", 0.0) or 0.0)
     overage = float(budget_result.get("overage", 0.0) or 0.0)
-    if overage > 0:
-        fragments.append(
-            (
-                f"Budget check for {request.cost_center_id} found a ${overage:,.2f} overage "
-                f"on ${request.total_amount:,.2f} with ${remaining:,.2f} remaining."
-            )
-        )
-    else:
-        fragments.append(
-            (
-                f"Budget check for {request.cost_center_id} passed with ${remaining:,.2f} "
-                f"remaining after a ${request.total_amount:,.2f} request."
-            )
-        )
-
-    if bool(duplication_result.get("violation", False)):
-        fragments.append(f"Vendor duplication check flagged POL-001 risk: {duplication_result.get('reason', '')}")
-    else:
-        fragments.append("Vendor duplication check found no single-source conflict.")
+    risk_level = str(risk_result.get("risk_level", "unknown"))
+    errors = _extract_errors(budget_result, duplication_result, policy_result, risk_result)
 
     violations = policy_result.get("violations", [])
-    if isinstance(violations, list) and violations:
-        policy_ids = [
-            str(v.get("policy_id"))
-            for v in violations
-            if isinstance(v, dict) and v.get("policy_id")
-        ]
-        if policy_ids:
-            fragments.append(f"Policy compliance identified: {', '.join(policy_ids)}.")
-    else:
-        fragments.append("Policy compliance check reported no violations.")
+    policy_ids = [
+        str(v.get("policy_id"))
+        for v in violations
+        if isinstance(v, dict) and v.get("policy_id")
+    ]
 
-    risk_level = str(risk_result.get("risk_level", "unknown"))
-    risk_summary = str(risk_result.get("risk_summary", "No risk summary available.")).strip()
-    fragments.append(f"Risk assessment returned {risk_level} risk: {risk_summary}")
-
-    errors = _extract_errors(budget_result, duplication_result, policy_result, risk_result)
+    active_drivers: list[str] = []
     if errors:
-        fragments.append("Tool errors required safe fallback escalation: " + " | ".join(errors))
+        active_drivers.append("tool error handling")
+    if overage > 0:
+        active_drivers.append("budget check")
+    if bool(duplication_result.get("violation", False)):
+        active_drivers.append("vendor duplication check")
+    if policy_ids:
+        active_drivers.append("policy compliance check")
+    if risk_level in {"high", "critical"}:
+        active_drivers.append("risk assessment")
 
-    fragments.append(f"Final recommendation: {decision} (precedence: escalate > deny > approve).")
+    if not active_drivers:
+        active_drivers = ["budget check", "policy compliance check", "risk assessment"]
 
-    return " ".join(fragment for fragment in fragments if fragment.strip())
+    if len(active_drivers) == 1:
+        checks_phrase = active_drivers[0]
+    elif len(active_drivers) == 2:
+        checks_phrase = f"{active_drivers[0]} and {active_drivers[1]}"
+    else:
+        checks_phrase = ", ".join(active_drivers[:-1]) + f", and {active_drivers[-1]}"
+
+    sentence_1 = (
+        f"The {checks_phrase} drove this decision for request {request.request_id} from "
+        f"{request.vendor_name}."
+    )
+
+    details: list[str] = [
+        (
+            f"The request amount is ${request_amount:,.2f} for cost center {request.cost_center_id}, "
+            f"with ${remaining:,.2f} remaining"
+        )
+    ]
+    if overage > 0:
+        details.append(f"an overage of ${overage:,.2f}")
+    if policy_ids:
+        details.append(f"policy findings {', '.join(policy_ids)}")
+    details.append(f"risk level {risk_level}")
+    if errors:
+        details.append(f"tool errors: {' | '.join(errors)}")
+
+    sentence_2 = "; ".join(details) + "."
+    sentence_3 = f"Final recommendation: {decision}."
+
+    return " ".join([sentence_1, sentence_2, sentence_3])
 
 
 def evaluate_request(request: PurchaseRequest) -> ProcurementRecommendation:

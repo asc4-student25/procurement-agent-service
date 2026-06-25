@@ -5,9 +5,9 @@ from __future__ import annotations
 from typing import Literal
 
 try:
-    from data.loader import load_vendors
+    from data import loader as data_loader
 except ImportError:  # pragma: no cover - temporary fallback while repo is being aligned
-    from solutions.data.loader import load_vendors
+    from solutions.data import loader as data_loader
 
 RiskLevel = Literal["low", "medium", "high", "critical"]
 _KNOWN_CONTRACT_STATUSES = {"active", "expired", "none"}
@@ -41,9 +41,19 @@ def assess_risk(vendor_id: str) -> dict[str, object]:
     when vendor lookup or data loading fails.
     """
     try:
-        vendors = load_vendors()
+        vendors = data_loader.load_vendors()
+    except FileNotFoundError as exc:
+        payload = _error_payload(vendor_id, f"Vendor data file could not be found: {exc}")
+        payload["error_type"] = "FileNotFoundError"
+        return payload
+    except KeyError as exc:
+        payload = _error_payload(vendor_id, f"Vendor data is missing required key: {exc}")
+        payload["error_type"] = "KeyError"
+        return payload
     except Exception as exc:
-        return _error_payload(vendor_id, f"Vendor data could not be loaded: {exc}")
+        payload = _error_payload(vendor_id, f"Unexpected risk tool failure: {exc}")
+        payload["error_type"] = "Exception"
+        return payload
 
     vendor = next((item for item in vendors if item.get("vendor_id") == vendor_id), None)
     if vendor is None:

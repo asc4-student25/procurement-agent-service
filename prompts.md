@@ -109,6 +109,81 @@ It supports Category 5 grading and showcase prep.
 
 ---
 
+## Current Session Work Log (2026-06-25)
+
+### Prompt Entry: Category 5 evidence gap analysis and artifact creation
+- Date: 2026-06-25
+- Session: Session 4-5 closeout
+- Story ID(s): US-005
+- Prompt goal: Identify what remained for Category 5 and create missing prompt evidence artifact.
+- Prompt text: "Go over this file... compare with the code base and let me know what is still pending" and "In Readme... I do not see equivalent to prompt.md file."
+- Output touched files: README.md (analysis only), prompts.md (created)
+- Team action: Accepted
+- Why this action was taken: The repository lacked a prompt log artifact required by Category 5; creating prompts.md closed that gap.
+- Validation run: File existence and content review in prompts.md
+- Commit(s): [fill in]
+- Notes for showcase: Direct example where Copilot accelerated audit-readiness documentation.
+
+### Prompt Entry: Root budget tool missing from tools folder
+- Date: 2026-06-25
+- Session: Session 3 wiring completion
+- Story ID(s): US-001, US-005
+- Prompt goal: Resolve missing root tool implementation and keep root runtime independent from solutions path.
+- Prompt text: "I dont see the budget file inside the tools folder"
+- Output touched files: tools/budget.py
+- Team action: Accepted
+- Why this action was taken: Session 1.8 requires all four tool files in root tools/ and check_budget implementation was missing there.
+- Validation run: pytest tests -v --tb=short (38 passed)
+- Commit(s): [fill in]
+- Notes for showcase: Example of closing a structural gap quickly with targeted AI assistance.
+
+### Prompt Entry: Session 1.8.2 completion (tools + OpenSpec validate)
+- Date: 2026-06-25
+- Session: Session 3
+- Story ID(s): US-001, US-002, US-003, US-004, US-005
+- Prompt goal: Verify all required tool files/functions exist and validate against OpenSpec.
+- Prompt text: "Lets do this first" after Session 1.8.2 checklist.
+- Output touched files: tools/budget.py, tools/vendor_duplication.py, tools/policy_compliance.py, tools/risk_assessment.py (verification)
+- Team action: Accepted
+- Why this action was taken: Confirmed Session 3 Step 1 objective with evidence instead of assumptions.
+- Validation run: openspec validate -> 7 passed, 0 failed
+- Commit(s): [fill in]
+- Notes for showcase: Good example of using Copilot to turn checklist language into executable validation steps.
+
+### Prompt Entry: Session 1.8 manual smoke checks and error-path evidence
+- Date: 2026-06-25
+- Session: Session 3
+- Story ID(s): US-005
+- Prompt goal: Verify required request outcomes and tool-error escalation behavior with structured output.
+- Prompt text: "yes" then "keep doing the updating the prompts.md file for all the work"
+- Output touched files: prompts.md (evidence only)
+- Team action: Redirected
+- Why this action was taken: Initial inline python terminal command failed due to quoting; approach was redirected to a Python snippet runner for reliable execution and output capture.
+- Validation run: REQ-001 approve, REQ-009 deny, REQ-011 escalate, REQ-014 escalate, invalid cost center escalates with error context
+- Commit(s): [fill in]
+- Notes for showcase: Strong redirect example showing human judgment on tool execution path and reliability.
+
+### Prompt Entry: Session 1.8.5 manual run and Session 1.8.6 OpenSpec verify
+- Date: 2026-06-25
+- Session: Session 3
+- Story ID(s): US-001, US-002, US-003, US-004, US-005
+- Prompt goal: Complete Session 3 manual smoke run and formal spec verification.
+- Prompt text: "1.8.5 and 1.8.6 let proceed with this"
+- Output touched files: prompts.md (evidence update)
+- Team action: Accepted
+- Why this action was taken: Needed explicit completion evidence for Session 3 wiring acceptance criteria.
+- Validation run: 
+	- REQ-001 expected=approve got=approve
+	- REQ-009 expected=deny got=deny
+	- REQ-011 expected=escalate got=escalate
+	- REQ-014 expected=escalate got=escalate
+	- REQ-ERR-001 got=escalate and rationale mentions error context
+	- openspec validate: 7 passed, 0 failed
+- Commit(s): [fill in]
+- Notes for showcase: Demonstrates end-to-end evidence capture from prompt to verification for Session 3 completion.
+
+---
+
 ## Showcase Evidence Snippets
 
 ### 1) One place we redirected or rejected Copilot output, and why

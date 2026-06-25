@@ -9,9 +9,9 @@
 
 | Field | Value |
 |-------|-------|
-| Date | 2026-06-23 |
-| Release / Milestone | Member 1 US-001 Checkpoint |
-| Release Description | Loader and budget module implementation validation checkpoint before full-team integration |
+| Date | 2026-06-25 |
+| Release / Milestone | AgentRunResult Compatibility Fix Checkpoint |
+| Release Description | Moved run_all_requests.py to repository root and updated result handling to support pydantic-ai AgentRunResult .data/.output variants |
 | Decision Maker | Resource 1 (member1/us001-loader-budget) |
 | Attendees | Resource 1 |
 
@@ -29,9 +29,9 @@
 | Every recommendation includes a non-empty `rationale` | Partial | Not validated in member1 checkpoint |
 | All four checks are performed: budget, vendor duplication, policy, risk | Partial | Budget and loader modules completed in this checkpoint |
 | Tool errors are caught and reflected in output | Partial | Verified for budget tool unavailable-data, unknown-center, and invalid-record paths |
-| All three decision types are reachable with sample requests | No | End-to-end run pending full integration |
-| pytest suite passes: approve, deny, policy-deny, escalate cases | No | Member1 budget+loader slice passed; full scenario suite pending |
-| `openspec validate` passes across complete spec suite | No | Pending full-team validation run |
+| All three decision types are reachable with sample requests | Yes | Covered by passing agent scenario tests and rationale-template coverage |
+| pytest suite passes: approve, deny, policy-deny, escalate cases | Yes | Full suite passed: 46/46 |
+| `openspec validate` passes across complete spec suite | Yes | Validation output shows 7 specs passed, 0 failed |
 
 ---
 
@@ -57,28 +57,34 @@
 
 | Metric | Count |
 |--------|-------|
-| Total tests | 11 |
-| Passed | 11 |
+| Total tests | 46 |
+| Passed | 46 |
 | Failed | 0 |
 | Skipped | 0 |
 | Errors | 0 |
 
-**pytest command run**: `pytest tests/test_budget.py tests/test_loader.py -v --tb=short --junitxml=../docs/test-results.xml` (executed from `solutions/`)
+**pytest command run**: `.venv/Scripts/python.exe -m pytest tests/ -v --tb=short --junitxml=docs/test-results.xml` (executed from repository root)
 
 **Test results file**: `docs/test-results.xml`, committed alongside this checklist (ITC.003)
 
 **Test output summary** (paste last 10 lines or attach screenshot):
 
 ```
-tests\test_budget.py::test_invalid_remaining_balance_returns_structured_error PASSED [ 72%]
-tests\test_loader.py::test_loader_functions_return_lists PASSED          [ 81%]
-tests\test_loader.py::test_loader_works_from_non_root_working_directory PASSED [ 90%]
-tests\test_loader.py::test_missing_file_raises_file_not_found PASSED     [100%]
+tests/test_vendor_duplication.py::test_no_violation_sole_active_vendor_in_category PASSED [ 91%]
+tests/test_vendor_duplication.py::test_no_violation_for_category_outside_pol001 PASSED [ 93%]
+tests/test_vendor_duplication.py::test_result_contains_required_keys PASSED [ 95%]
+tests/test_vendor_duplication.py::test_vendor_id_echoed_in_result PASSED [ 97%]
+tests/test_vendor_duplication.py::test_amount_echoed_in_result PASSED [100%]
 
--- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
-- generated xml file: ...\docs\test-results.xml -
-======================== 11 passed, 1 warning in 0.09s ========================
+- generated xml file: .../docs/test-results.xml -
+============================= 46 passed in 1.96s =============================
 ```
+
+**Change documented in this checkpoint**:
+
+- `run_all_requests.py` moved from `tools/` to repository root.
+- Updated `run_all_requests.py` to read recommendation from `AgentRunResult.data` or `AgentRunResult.output`.
+- Verified `python -m py_compile run_all_requests.py` succeeds after the change.
 
 ---
 
@@ -89,8 +95,7 @@ tests\test_loader.py::test_missing_file_raises_file_not_found PASSED     [100%]
 
 | ID | Description | Severity | Acceptance Rationale |
 |----|-------------|----------|---------------------|
-| D-001 | Full integration and orchestration tests not yet executed in this checkpoint | High | Acceptable for lane-level checkpoint; blocks final Go |
-| D-002 | OpenSpec validation command has not been run for full change on this branch | High | Acceptable for lane-level checkpoint; must be completed before release |
+| None | No outstanding blocking defects recorded for this checkpoint | N/A | Full test suite passed and peer review remains Pass |
 
 ---
 
@@ -115,8 +120,8 @@ tests\test_loader.py::test_missing_file_raises_file_not_found PASSED     [100%]
 Mark exactly one:
 
 - [ ] **Go**: all acceptance criteria are met, peer review passed, no blocking defects
-- [x] **No-Go**: one or more blocking items remain; list them below
-- [ ] **Conditional Go**: proceeding with conditions; conditions listed below
+- [ ] **No-Go**: one or more blocking items remain; list them below
+- [x] **Conditional Go**: proceeding with conditions; conditions listed below
 
 **Decision Rationale** *(required, minimum two sentences)*:
 
@@ -124,12 +129,11 @@ Mark exactly one:
      Reference specific evidence: test results, peer review rating, acceptance criteria
      status. A single sentence is not sufficient. -->
 
-This checkpoint verifies the member1 implementation scope for US-001, including loader and budget behavior updates and structured error handling. Evidence in `docs/test-results.xml` shows 11/11 member1 tests passing (budget plus loader), but end-to-end acceptance criteria and full OpenSpec validation are still pending, so this checkpoint is No-Go for release.
+This checkpoint verifies the run_all_requests compatibility update with current evidence showing 46/46 tests passing in `docs/test-results.xml` and a Pass rating in `docs/rapid-peer-review.md`. The decision is **Conditional Go** because test and peer-review gates are green, while the top-level acceptance rollup remains not fully checked and should be finalized in this document before a final Go decision.
 
 **Conditions** *(if Conditional Go or No-Go, list all)*:
 
-1. Run full project validation (`openspec validate add-procurement-intelligence-agent` or `openspec validate --all`).
-2. Run full test suite and update XML evidence with complete results.
+1. Update the Section 1 rollup checkbox (`All eight acceptance criteria are met`) after final reviewer sign-off.
 
 ---
 
